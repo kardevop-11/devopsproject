@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE  = "kartik46/react-app"
-        DEPLOY_SERVER = "ubuntu@13.201.2.198"
+        DEPLOY_SERVER = "ubuntu@YOUR_EC2_IP"
     }
 
     stages {
@@ -17,17 +17,29 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Install Dependencies') {
             steps {
-                sh 'docker logout || true'
-                sh 'docker build -t $DOCKER_IMAGE:latest .'
+                bat 'npm install --legacy-peer-deps'
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Build App') {
             steps {
+                bat 'npm run build'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                bat 'npm test'
+            }
+        }
+
+        /* Uncomment these stages once connected to AWS EC2 with Docker:
+        stage('Build & Push Docker Image') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE:latest .'
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'docker logout || true'
                     sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
                     sh 'docker push $DOCKER_IMAGE:latest'
                 }
@@ -37,7 +49,6 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
-                    sh 'chmod 600 "$SSH_KEY"'
                     sh """
                         ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" $DEPLOY_SERVER '
                             sudo docker pull ${DOCKER_IMAGE}:latest
@@ -49,5 +60,6 @@ pipeline {
                 }
             }
         }
+        */
     }
 }
